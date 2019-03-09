@@ -18,7 +18,7 @@ if not CONFIG["DEBUG"]:
     # on windows, it's necessary to install the tesseract binaries and set the correct path for pytesseract to use
     pt.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# GLOBALS
+# GLOBALS ==============================================================================================================
 DEBUG = CONFIG["DEBUG"]
 
 # contains all images in assets/templates/tables converted to grayscale and sorted according to file name

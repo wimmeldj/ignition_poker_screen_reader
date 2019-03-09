@@ -71,32 +71,28 @@ def get_handedness(img_gray) -> int:
     return None
 
 
-# uses tesseract for ocr. Expects an image, scaling factors, and a tesseract config string
+# uses tesseract for ocr. Parses an image to string
 def ocr(img, x_scale=1, y_scale=1, config="") -> str:
-    if x_scale != 1 and y_scale != 1:
-        img = cv2.resize(img, None, fx=x_scale, fy=y_scale)
+    img = cv2.resize(img, None, fx=x_scale, fy=y_scale)
     return pt.image_to_string(img, config=config)
 
 
 # ocr but for multiprocessing. Additionally expects a tuple of form (unique_id, img_to_process)
-def para_ocr(x_scale=1, y_scale=1, config="", id_and_img=()):
+def para_ocr(x_scale=1, y_scale=1, config="", id_and_img=()) -> tuple:
     id, img = id_and_img
-    img = cv2.resize(img, None, fx=x_scale, fy=y_scale)
+    img = cv2.resize(img, None, fx=x_scale, fy=y_scale, interpolation=cv2.INTER_CUBIC)
     ocr_str = pt.image_to_string(img, config=config)
     ret = (id, ocr_str)
     return ret
 
 
-def populate_players(g: CashGameState):
+def populate_players(g):
     """
     For the given CashGameState, g, creates Player objects for each player found. For each player, sets seat_num,
     is_hero, and stack. These players are added to g's players dictionary.
     """
-    x, y, w, h = 0, 0, 0, 0
     screen = g.current_screen
-    hero_seat_num_img = None
-    hero_seat_num = None
-    # TODO: implement other handedness offsets
+
     # First find hero's seat number.
     if g.handedness == 6:
         x, y, w, h = 350, 472, 22, 18
@@ -104,11 +100,11 @@ def populate_players(g: CashGameState):
         hero_seat_num_img = screen[y:y+h, x:x+w]
         hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=123456")
     elif g.handedness == 9:
-        x, y, w, h = 0, 0, 0, 0
+        x, y, w, h = 453, 472, 22, 18
         hero_seat_num_img = screen[y:y + h, x:x + w]
         hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=123456789")
     elif g.handedness == 2:
-        x, y, w, h = 0, 0, 0, 0
+        x, y, w, h = 349, 465, 22, 18
         hero_seat_num_img = screen[y:y + h, x:x + w]
         hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=12")
     else:
@@ -131,7 +127,7 @@ def populate_players(g: CashGameState):
     # parses the stack sizes for players in game_state g
     if g.handedness == 6:
         for _ in range(0, len(seat_nums)):
-            seat_num = seat_nums[(hero_seat_num + offset) % 6]
+            seat_num = seat_nums[(hero_seat_num + offset) % g.handedness]
             w, h = 101, 26
             if offset == -1:  # corresponds to position of hero
                 x, y = 383, 469
@@ -148,23 +144,69 @@ def populate_players(g: CashGameState):
             stack_img = screen[y:y+h, x:x+w]
             seats_and_stack_imgs.append((seat_num, stack_img))
             offset += 1
+    elif g.handedness == 9:
+        for _ in range(0, len(seat_nums)):
+            seat_num = seat_nums[(hero_seat_num + offset) % g.handedness]
+            w, h = 101, 26
+            if offset == -1:
+                x, y = 341, 468
+            elif offset == 0:
+                x, y = 196, 455
+            elif offset == 1:
+                x, y = 71, 339
+            elif offset == 2:
+                x, y = 88, 198
+            elif offset == 3:
+                x, y = 265, 130
+            elif offset == 4:
+                x, y = 457, 130
+            elif offset == 5:
+                x, y = 637, 198
+            elif offset == 6:
+                x, y = 652, 339
+            elif offset == 7:
+                x, y = 530, 455
+            stack_img = screen[y:y+h, x:x+w]
+            seats_and_stack_imgs.append((seat_num, stack_img))
+            offset += 1
+    elif g.handedness == 2:
+        for _ in range(0, len(seat_nums)):
+            seat_num = seat_nums[(hero_seat_num + offset) % g.handedness]
+            w, h = 101, 26
+            if offset == -1:
+                x, y = 384, 460
+            elif offset == 0:
+                x, y = 384, 140
+            stack_img = screen[y:y+h, x:x+w]
+            seats_and_stack_imgs.append((seat_num, stack_img))
+            offset += 1
 
-        # once we have all the stack images corresponding to a seat, we parallel process them
-        para_ocr_partial = partial(para_ocr, 10, 10, "-psm 8 tessedit_char_whitelist=0123456789$.")
-        pool = mp.Pool(6)
-        seats_and_parsed_stacks = pool.map(para_ocr_partial, seats_and_stack_imgs)
+    # once we have all the stack images corresponding to a seat, we parallel process them
+    para_ocr_partial = partial(para_ocr, 20, 20, "-psm 8 tessedit_char_whitelist=0123456789$.")
+    pool = mp.Pool(6)
+    seats_and_parsed_stacks = pool.map(para_ocr_partial, seats_and_stack_imgs)
 
-        for seat_num, stack in seats_and_parsed_stacks:
-            matches = re.findall(MONEY_P, stack)
-            try:
-                g.players[seat_num].stack = float(matches[0])
-            except IndexError:
-                # if a stack image parsed by ocr does not match MONEY_P, we assume there isn't a player in that position
-                g.players[seat_num].is_empty = True
-                g.players[seat_num].stack = 0
+    for seat_num, stack in seats_and_parsed_stacks:
+        matches = re.findall(MONEY_P, stack)
+        try:
+            g.players[seat_num].stack = float(matches[0])
+        except IndexError:
+            # if a stack image parsed by ocr does not match MONEY_P, we assume there isn't a player in that position
+            g.players[seat_num].is_empty = True
+            g.players[seat_num].stack = 0
+    return
 
 
-def init(interval_time):
+# Updates current_screen of each game_state
+def update_screens():
+    screens = grab_screens()
+    for title, screen in screens.items():
+        table_id = re.findall(TABLE_ID_P, title)[0]
+        game_states[table_id].current_screen = screen
+    return
+
+
+def init():
     """
     Called on startup. Responsible for initializing of game_state objects
     :param interval_time:
@@ -185,14 +227,16 @@ def init(interval_time):
         game_states[table_id] = CashGameState(handedness=handedness, table_id=table_id, bb_size=bb, sb_size=sb,
                                               current_screen=screens[title])
 
-        for g in game_states.values():
-            populate_players(g)
+    # for each CashGameState, get seat_nums and stacks of players
+    for g in game_states.values():
+        populate_players(g)
+    return
 
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')  # to imitate Windows environment
     game_states = {}
-    init(0.1)
+    init()
 
     if DEBUG:
         for g in game_states.values():
