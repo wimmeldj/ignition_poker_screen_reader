@@ -16,8 +16,9 @@ poker game running.
 
 ### Dependencies
 
-- [Tesseract OCR for Windows v3.05.01](https://digi.bib.uni-mannheim.de/tesseract/) v4.0 and up don't work yet. Binary for 3.05.01 is also provided in this repo.
+- [Tesseract OCR for Windows v3.05.01](https://digi.bib.uni-mannheim.de/tesseract/) v4.0 and up don't work yet. Binary for 3.05.01 is also provided in /dependency_binaries. Install it on your system and add 'tesseract' to your path pointing to the install location of the binary.
 - [PyWin32](https://www.lfd.uci.edu/~gohlke/pythonlibs/#pywin32) This is where the win32gui lib comes from.
+Binary for python 3.7 64 bit is also provided in /dependency_binaries. Install it with pip.
 - numpy
 - opencv-python
 - Pillow
