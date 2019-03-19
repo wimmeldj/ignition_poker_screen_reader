@@ -98,15 +98,15 @@ def populate_players(g):
         x, y, w, h = 350, 472, 22, 18
         # crop current screen to hero's seat number
         hero_seat_num_img = screen[y:y+h, x:x+w]
-        hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=123456")
+        hero_seat_num = ocr(img=hero_seat_num_img, config="--psm 10 -c tessedit_char_whitelist=123456")
     elif g.handedness == 9:
         x, y, w, h = 453, 472, 22, 18
         hero_seat_num_img = screen[y:y + h, x:x + w]
-        hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=123456789")
+        hero_seat_num = ocr(img=hero_seat_num_img, config="--psm 10 -c tessedit_char_whitelist=123456789")
     elif g.handedness == 2:
         x, y, w, h = 349, 465, 22, 18
         hero_seat_num_img = screen[y:y + h, x:x + w]
-        hero_seat_num = ocr(img=hero_seat_num_img, config="-psm 10 -c tessedit_char_whitelist=12")
+        hero_seat_num = ocr(img=hero_seat_num_img, config="--psm 10 -c tessedit_char_whitelist=12")
     else:
         raise RuntimeError
 
@@ -182,7 +182,7 @@ def populate_players(g):
             offset += 1
 
     # once we have all the stack images corresponding to a seat, we parallel process them
-    para_ocr_partial = partial(para_ocr, 20, 20, "-psm 8 tessedit_char_whitelist=0123456789$.")
+    para_ocr_partial = partial(para_ocr, 20, 20, "--psm 8 -c tessedit_char_whitelist=0123456789$.")
     pool = mp.Pool(6)
     seats_and_parsed_stacks = pool.map(para_ocr_partial, seats_and_stack_imgs)
 
